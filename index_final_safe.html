@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Карта Дня: Премиум Таро</title>
+    <!-- VK Bridge -->
+    <script src="/vk-bridge.js"></script>
+    <script>
+        try { vkBridge.send('VKWebAppInit'); } catch(e) { console.log(e); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #d4af37;
+            --gold-light: #f9f1b4;
+            --gold-dark: #aa7c11;
+            --purple-deep: #0f0518;
+            --purple-mid: #2a1145;
+            --purple-light: #522d7a;
+        }
+
+        body {
+            background-color: var(--purple-deep);
+            color: var(--gold-light);
+            font-family: 'Cormorant Garamond', serif;
+            margin: 0; padding: 0; overflow-x: hidden;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        .dust-inline { width: 14px; height: 14px; display: inline-block; vertical-align: middle; stroke: var(--gold); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin: 0 2px;}
+        .energy-inline { width: 14px; height: 14px; display: inline-block; vertical-align: middle; stroke: var(--gold); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin: 0 2px;}
+
+        /* --- ФОН --- */
+        .smoke-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -2; overflow: hidden; background: radial-gradient(circle at center, #140727 0%, #05010a 100%); }
+        .smoke-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5; animation: drift 15s infinite alternate ease-in-out; pointer-events: none; }
+        .smoke-1 { width: 50vw; height: 50vw; background: #4a154b; top: -10%; left: -10%; }
+        .smoke-2 { width: 60vw; height: 60vw; background: #260542; bottom: -20%; right: -10%; animation-delay: -5s; }
+        .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-image: radial-gradient(1px 1px at 20px 30px, var(--gold-light), rgba(0,0,0,0)), radial-gradient(1.5px 1.5px at 150px 120px, var(--gold), rgba(0,0,0,0)); background-size: 200px 200px; animation: twinkle 4s infinite alternate; opacity: 0.4; pointer-events: none; }
+        @keyframes twinkle { 0% { opacity: 0.2; } 100% { opacity: 0.7; } }
+        @keyframes drift { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(50px, -50px) scale(1.1); } }
+
+        h1 { font-family: 'Cinzel', serif; margin: 0; font-size: 28px; font-weight: 600; background: linear-gradient(to right, var(--gold-dark), var(--gold-light), var(--gold-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; text-shadow: 0 0 20px rgba(212, 175, 55, 0.2); text-transform: uppercase; text-align: center; padding-top: 30px;}
+        .subtitle { text-align: center; margin: 5px 0 15px 0; font-size: 16px; color: #a38cbb; font-style: italic; letter-spacing: 1px; }
+
+        /* --- ВЕРХНИЕ СТАТЫ --- */
+        .top-stats { display: flex; justify-content: center; gap: 15px; margin-bottom: 15px; position: relative; z-index: 100; }
+        .stat-badge { background: rgba(26, 15, 36, 0.8); border: 1px solid rgba(212, 175, 55, 0.4); padding: 5px 15px; border-radius: 20px; font-family: 'Cinzel', serif; font-size: 14px; font-weight: bold; color: var(--gold-light); display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        /* --- ВОПРОС НЕЙРОСЕТИ --- */
+        .question-box { width: 100%; max-width: 260px; margin: 0 auto 15px auto; position: relative; z-index: 10; }
+        .question-input { width: 100%; background: rgba(23, 10, 36, 0.6); border: 1px solid rgba(212, 175, 55, 0.4); color: var(--gold-light); padding: 12px 15px; border-radius: 20px; font-family: 'Cormorant Garamond', serif; font-size: 15px; outline: none; box-sizing: border-box; text-align: center; transition: 0.3s;}
+        .question-input:focus { border-color: var(--gold); box-shadow: 0 0 10px rgba(212, 175, 55, 0.3); background: rgba(26, 15, 36, 0.8); }
+        .ai-text { font-size: 14px; color: #f9f1b4; margin-top: 12px; font-style: italic; border-top: 1px dashed rgba(212, 175, 55, 0.3); padding-top: 12px; display: none; line-height: 1.4; white-space: pre-wrap;}
+
+        /* --- ЭКРАНЫ --- */
+        .screen { display: none; flex-direction: column; align-items: center; padding: 0 20px 100px 20px; width: 100%; box-sizing: border-box; position: relative; z-index: 10;}
+        .screen.active { display: flex; }
+
+        /* --- КАРТА (Гадание) --- */
+        .flip-card { width: 260px; height: 410px; perspective: 1500px; margin: 0 auto 20px auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 1s cubic-bezier(0.2, 0.85, 0.4, 1.2); transform-style: preserve-3d; box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(82, 45, 122, 0.4); border-radius: 12px; pointer-events: none; }
+        .flip-card.flipped .flip-card-inner { transform: rotateY(180deg) scale(1.05); box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 50px rgba(212, 175, 55, 0.4); }
+        .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 12px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; overflow: hidden; }
+        
+        .flip-card-front { background-image: url('/images/fortune_teller.jpg'); background-size: cover; background-position: center; border: 2px solid var(--gold-dark); justify-content: center; }
+        .flip-card-front::before { content: ''; position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 1px solid rgba(212, 175, 55, 0.6); border-radius: 8px; pointer-events: none; }
+        .glare { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%); transform: skewX(-25deg); animation: shine 6s infinite; pointer-events: none; z-index: 5;}
+        
+        .flip-card-back { background: linear-gradient(180deg, rgba(23, 10, 36, 0.8) 0%, rgba(10, 4, 16, 0.95) 100%); border: 2px solid var(--gold); transform: rotateY(180deg); padding: 25px 15px; justify-content: flex-start; overflow-y: auto;}
+        .flip-card-back::after { content: ''; position: fixed; top: 8px; left: 8px; right: 8px; bottom: 8px; border: 1px solid rgba(212, 175, 55, 0.6); border-radius: 6px; pointer-events: none; }
+        .card-number { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold-light); margin-top: 10px; z-index: 2;}
+        .divider-svg { width: 80px; height: 12px; margin: 10px 0; z-index: 2; flex-shrink:0;}
+        .card-title { font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; color: var(--gold); text-transform: uppercase; text-shadow: 0 0 10px rgba(212, 175, 55, 0.8); z-index: 2; flex-shrink:0;}
+        .card-desc { font-size: 15px; line-height: 1.4; color: #e6dfee; text-align: center; margin-top: 10px; font-style: italic; text-shadow: 0 2px 4px rgba(0,0,0,0.9); padding: 0 10px; z-index: 2; flex-shrink:0;}
+
+        /* --- КНОПКИ --- */
+        .btn-container { width: 100%; display: flex; justify-content: center; align-items: center; margin-top: 15px; flex-direction: column; gap: 10px;}
+        .btn { padding: 15px 30px; background: linear-gradient(90deg, #aa7c11, #f9f1b4, #aa7c11); background-size: 200% auto; color: #0f0518; border: none; border-radius: 30px; cursor: pointer; font-family: 'Cinzel', serif; font-weight: 700; font-size: 14px; text-transform: uppercase; box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); transition: 0.5s; width: 100%; max-width: 260px; display: block; margin: 0 auto; text-align: center;}
+        .btn:hover { background-position: right center; transform: scale(1.05); }
+        .btn:disabled { filter: grayscale(100%); opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;}
+        .btn-small { padding: 8px 15px; font-size: 12px; background: transparent; border: 1px solid var(--gold); color: var(--gold); border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: 0.3s;}
+        .btn-small:hover { background: rgba(212, 175, 55, 0.2); }
+        .btn-small:disabled { border-color: #555 !important; color: #888 !important; background: transparent !important; cursor: not-allowed; opacity: 0.6; }
+
+        /* --- ПРОФИЛЬ, ГРИМУАР И ФОНЫ --- */
+        .profile-card { background: rgba(26, 15, 36, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; width: 100%; max-width: 320px; padding: 20px; box-sizing: border-box; text-align: center; margin-bottom: 25px;}
+        .rank-title { font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+        .progress-container { width: 100%; background: #170a24; border-radius: 10px; height: 8px; margin: 15px 0; overflow: hidden; border: 1px solid #4a154b; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); width: 5%; transition: width 1s; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 15px; color: #b3a5c4; align-items: center;}
+        
+        .grimoire-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; max-width: 320px; margin-bottom: 25px;}
+        .grid-card { aspect-ratio: 1 / 1.6; background: #170a24; border: 1px solid #4a154b; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; font-size: 24px; color: #4a154b; position: relative; overflow: hidden; }
+        .grid-card.collected { border-color: var(--gold); color: var(--gold-light); box-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
+
+        .bg-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 320px;}
+        .bg-item { aspect-ratio: 9/16; border-radius: 8px; background-size: cover; background-position: center; border: 2px solid #4a154b; position: relative; cursor: pointer; transition: 0.3s;}
+        .bg-item.active-bg { border-color: var(--gold); box-shadow: 0 0 15px rgba(212,175,55,0.6); }
+        .bg-label { position: absolute; bottom: 5px; left: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; text-align: center; border-radius: 4px; padding: 2px 0;}
+        .bg-lock { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 24px; text-shadow: 0 2px 5px #000; }
+
+        /* --- АЛТАРЬ --- */
+        .altar-container { position: relative; width: 250px; height: 250px; margin: 20px auto; cursor: pointer; display: flex; justify-content: center; align-items: center; -webkit-tap-highlight-color: transparent;}
+        .altar-image { width: 100%; height: 100%; object-fit: contain; pointer-events: none; transition: 0.5s; position: relative; z-index: 10; filter: drop-shadow(0 0 20px rgba(212,175,55,0.3)); }
+        .altar-ring-1 { position: absolute; border-radius: 50%; width: 180px; height: 180px; pointer-events: none; display:none; border-top: 2px solid #cd7f32; border-bottom: 2px solid #cd7f32; animation: spinRing 4s linear infinite; }
+        .altar-ring-2 { position: absolute; border-radius: 50%; width: 140px; height: 140px; pointer-events: none; display:none; border-left: 2px solid #bfa1db; border-right: 2px solid #bfa1db; animation: spinRingReverse 5s linear infinite; }
+
+        @keyframes spinRing { 0% { transform: rotateX(60deg) rotateZ(0deg); } 100% { transform: rotateX(60deg) rotateZ(360deg); } }
+        @keyframes spinRingReverse { 0% { transform: rotateY(60deg) rotateX(20deg) rotateZ(0deg); } 100% { transform: rotateY(60deg) rotateX(20deg) rotateZ(-360deg); } }
+
+        /* --- БОНУСЫ (РИТУАЛЫ) --- */
+        .bonus-item { background: rgba(15, 5, 24, 0.6); backdrop-filter: blur(5px); border: 1px solid #4a154b; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; text-align: left; width: 100%; box-sizing: border-box; gap: 10px;}
+        .bonus-item:hover { border-color: var(--gold-dark); background: rgba(26, 15, 36, 0.8); }
+        .bonus-icon { width: 36px; height: 36px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; }
+        .bonus-icon svg { width: 100%; height: 100%; stroke: var(--gold); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;}
+        .bonus-text { flex-grow: 1; }
+        .bonus-text h3 { margin: 0 0 5px 0; font-size: 15px; color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: 1px;}
+        .bonus-text p { margin: 0; font-size: 13px; color: #b3a5c4; line-height: 1.3;}
+        .bonus-action { flex-shrink: 0; display: flex; flex-direction: column; justify-content: center;}
+
+        /* --- КОНТЕКСТНЫЙ ТУТОРИАЛ --- */
+        .tutorial-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99990; display: none; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; opacity: 0; transition: opacity 0.3s; pointer-events: none;}
+        .tutorial-overlay.active { display: flex; opacity: 1; pointer-events: auto;}
+        .tutorial-dialog { background: linear-gradient(180deg, #170a24 0%, #0a0410 100%); border: 2px solid var(--gold); border-radius: 15px; padding: 25px; width: 90%; max-width: 340px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 99999; pointer-events: auto; }
+        .tutorial-dialog h3 { color: var(--gold); font-family: 'Cinzel', serif; margin: 0 0 15px 0; font-size: 22px; }
+        .tutorial-dialog p { color: #d8cce6; font-size: 15px; line-height: 1.4; margin: 0 0 20px 0; }
+        
+        .tut-highlight { position: relative; border-radius: 12px; animation: pulseTut 2s infinite !important; }
+        @keyframes pulseTut { 0% { box-shadow: 0 0 10px rgba(212,175,55,0.4); } 50% { box-shadow: 0 0 30px rgba(212,175,55,1); } 100% { box-shadow: 0 0 10px rgba(212,175,55,0.4); } }
+
+        /* Обычные модалки */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: auto;}
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .info-box { background: linear-gradient(180deg, #170a24 0%, #0a0410 100%); border: 2px solid var(--gold); border-radius: 15px; padding: 25px; width: 90%; max-width: 340px; text-align: left; position: relative;}
+        .close-btn { position: absolute; top: 15px; right: 15px; color: var(--gold); font-size: 24px; cursor: pointer; line-height: 1;}
+
+        /* Превью Фонов */
+        .preview-box { background: linear-gradient(180deg, #170a24 0%, #0a0410 100%); border: 2px solid var(--gold); border-radius: 15px; padding: 20px; width: 90%; max-width: 300px; text-align: center; position: relative;}
+        .preview-img { width: 100%; aspect-ratio: 9/16; background-size: cover; background-position: center; border-radius: 10px; border: 2px solid var(--gold); margin-bottom: 15px;}
+
+        /* --- НИЖНЕЕ МЕНЮ --- */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 70px; background: rgba(15, 5, 24, 0.95); backdrop-filter: blur(10px); border-top: 1px solid rgba(212, 175, 55, 0.3); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #522d7a; cursor: pointer; flex: 1; height: 100%; -webkit-tap-highlight-color: transparent;}
+        .nav-item.active { color: var(--gold); }
+        .nav-icon { width: 24px; height: 24px; margin-bottom: 4px; }
+        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;}
+        .nav-label { font-size: 11px; font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1px;}
+        
+        /* Лоадер */
+        #loader { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--purple-deep) radial-gradient(circle at center, #2a1145 0%, #0f0518 100%); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--gold); font-family: 'Cinzel', serif; font-size: 20px; transition: opacity 0.5s; pointer-events: all;}
+        .loader-spinner { width: 50px; height: 50px; border: 3px solid rgba(212, 175, 55, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="loader-spinner"></div>
+        <div>Врата открываются...</div>
+    </div>
+
+    <!-- КОНТЕКСТНЫЙ ТУТОРИАЛ -->
+    <div class="tutorial-overlay" id="tutOverlay">
+        <div class="tutorial-dialog">
+            <h3 id="tutTitle">Привет, Путник!</h3>
+            <p id="tutText">Текст обучения...</p>
+            <button class="btn" id="tutNextBtn" style="margin: 0 auto;">Понятно</button>
+        </div>
+    </div>
+
+    <div class="smoke-container"><div class="smoke-blob smoke-1"></div><div class="smoke-blob smoke-2"></div></div>
+    <div class="particles"></div>
+
+    <div class="top-stats">
+        <div class="stat-badge"><svg class="energy-inline" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span id="energyCountHeader">1</span></div>
+        <div class="stat-badge"><svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg><span id="dustCountHeader">0</span></div>
+    </div>
+
+    <!-- ЭКРАН 1: ГАДАНИЕ -->
+    <div id="screen-divination" class="screen active">
+        <h1 style="padding-top: 0;">Карта Дня</h1>
+        <p class="subtitle" id="instruction">Энергия полна. Коснитесь колоды.</p>
+        <div class="question-box" id="stepQuestion">
+            <input type="text" id="userQuestion" class="question-input" placeholder="Спроси Вселенную (необязательно)..." autocomplete="off">
+        </div>
+        <div class="flip-card" id="card" onclick="drawCardApi()">
+            <div class="flip-card-inner" id="cardInner">
+                <div class="flip-card-front"><div class="glare"></div></div>
+                <div class="flip-card-back" id="cardBack">
+                    <div class="glare"></div>
+                    <div class="card-number" id="cardNumber">I</div>
+                    <svg class="divider-svg" viewBox="0 0 100 15" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="7" x2="100" y2="7" stroke="#d4af37" stroke-width="1"/><polygon points="50,2 55,7 50,12 45,7" fill="#d4af37"/></svg>
+                    <div class="card-title" id="cardName">Маг</div>
+                    <svg class="divider-svg" viewBox="0 0 100 15" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(180deg);"><line x1="0" y1="7" x2="100" y2="7" stroke="#d4af37" stroke-width="1"/><polygon points="50,2 55,7 50,12 45,7" fill="#d4af37"/></svg>
+                    <div class="card-desc" id="cardDesc">Текст</div>
+                    <div class="ai-text" id="aiResponse">Духи шепчут...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="btn-container" id="shareBtnContainer" style="display:none; opacity:0; transition: opacity 0.5s;">
+            <button class="btn" onclick="publishStoryVK()">Поделиться в Истории</button>
+            <button class="btn-small" onclick="resetCardManual()" style="margin-top: 5px;">Новое гадание ↻</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: АЛТАРЬ -->
+    <div id="screen-altar" class="screen">
+        <h1 style="padding-top: 0;">Алтарь Судьбы</h1>
+        <p class="subtitle">Улучшай алтарь для силы!</p>
+        
+        <div style="font-family: 'Cinzel', serif; font-size: 18px; color: var(--gold); margin-bottom: 5px;">
+            Уровень <span id="altarLevel">1</span>
+        </div>
+        <p style="font-size: 13px; color: #b3a5c4; text-align: center; margin-top: 0; margin-bottom: 10px;">
+            Множитель ежедневной награды: <span style="color:var(--gold)">x<span id="altarMultiplier">1</span></span>
+        </p>
+        
+        <div class="altar-container" id="altarCrystal" onclick="tapAltar(event)">
+            <img id="altarImage" src="/images/optimized/tree_1.png" class="altar-image">
+            <div class="altar-ring-1" id="altarRing1"></div>
+            <div class="altar-ring-2" id="altarRing2"></div>
+        </div>
+        
+        <p id="starShowerTimer" style="color: #ff8c00; font-weight: bold; font-size: 15px; margin-bottom: 10px; display: none; text-shadow: 0 0 10px #ff8c00;">Астральный шторм: 30 сек (x10 Пыли!)</p>
+        <p style="color: var(--gold-light); font-size: 14px; margin-bottom: 25px;">Тапни по Древу Жизни (+1 <svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg>)</p>
+
+        <div class="progress-container" style="max-width: 250px; height: 6px;">
+            <div class="progress-bar" id="altarProgress" style="width: 0%;"></div>
+        </div>
+
+        <button class="btn" style="margin-top: 15px; margin-bottom: 20px;" onclick="upgradeAltar()" id="upgradeBtn">Улучшить (Цена: <span id="altarCost">100</span> <svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg>)</button>
+        
+        <p style="font-size: 12px; color: #a38cbb; text-align: center;">Алтарь дает доступ к новым фонам Историй!</p>
+    </div>
+
+    <!-- ЭКРАН 3: ГРИМУАР -->
+    <div id="screen-grimoire" class="screen">
+        <h1 style="padding-top: 0;">Мой Профиль</h1>
+        
+        <div class="profile-card">
+            <div class="rank-title" id="rankTitle">Неофит</div>
+            <div class="stat-row"><span>Собрано карт:</span><span style="color:var(--gold);"><span id="cardsCount">1</span> / 22</span></div>
+            <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+            <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">
+                <button class="btn-small" onclick="openModal('infoModal')">Свиток Правил</button>
+                <button class="btn-small" onclick="replayTutorial()">Обучение</button>
+            </div>
+        </div>
+
+        <h3 style="font-family: 'Cinzel'; color: #d8cce6; margin-bottom: 10px; letter-spacing: 1px; font-weight: normal; align-self: flex-start; margin-left: 10px;">Фоны для Историй</h3>
+        <p style="font-size: 12px; color: #8874a3; margin-top:0; align-self: flex-start; margin-left: 10px;">Открываются с ростом Алтаря</p>
+        <div class="bg-gallery" id="bgGallery">
+            <div class="bg-item active-bg" id="bg_vk_story_bg.jpg" style="background-image: url('/images/optimized/vk_story_bg.jpg')" onclick="previewBg(1, 'vk_story_bg.jpg', 'Космос')">
+                <div class="bg-label">Космос (Ур. 1)</div>
+            </div>
+            <div class="bg-item locked" id="bg_bg_bronze.jpg" style="background-image: url('/images/optimized/bg_bronze.jpg')" onclick="previewBg(5, 'bg_bronze.jpg', 'Бронза')">
+                <div class="bg-lock" id="lock_bg_bronze.jpg">🔒</div><div class="bg-label">Бронза (Ур. 5)</div>
+            </div>
+            <div class="bg-item locked" id="bg_bg_silver.jpg" style="background-image: url('/images/optimized/bg_silver.jpg')" onclick="previewBg(10, 'bg_silver.jpg', 'Серебро')">
+                <div class="bg-lock" id="lock_bg_silver.jpg">🔒</div><div class="bg-label">Серебро (Ур. 10)</div>
+            </div>
+            <div class="bg-item locked" id="bg_bg_gold.jpg" style="background-image: url('/images/optimized/bg_gold.jpg')" onclick="previewBg(20, 'bg_gold.jpg', 'Золото')">
+                <div class="bg-lock" id="lock_bg_gold.jpg">🔒</div><div class="bg-label">Золото (Ур. 20)</div>
+            </div>
+        </div>
+
+        <h3 style="font-family: 'Cinzel'; color: #d8cce6; margin: 25px 0 15px 0; letter-spacing: 1px; font-weight: normal; align-self: flex-start; margin-left: 10px;">Альбом Арканов</h3>
+        <div class="grimoire-grid" id="albumGrid"></div>
+    </div>
+
+    <!-- ЭКРАН 4: РИТУАЛЫ -->
+    <div id="screen-rituals" class="screen">
+        <h1 style="padding-top: 0;">Ритуалы</h1>
+        <p class="subtitle">Исполняй предначертанное</p>
+        <div style="width: 100%; max-width: 320px;">
+            <div class="bonus-item">
+                <div class="bonus-icon"><svg viewBox="0 0 24 24"><path d="M18 4H6C6 4 7 12 12 12C17 12 18 4 18 4Z"/><path d="M18 20H6C6 20 7 12 12 12C17 12 18 20 18 20Z"/><line x1="5" y1="2" x2="19" y2="2"/><line x1="5" y1="22" x2="19" y2="22"/></svg></div>
+                <div class="bonus-text"><h3>Нить Времени</h3><p>Ежедневный заход</p></div>
+                <div class="bonus-action"><button class="btn-small" id="claimDailyBtn" onclick="claimDailyBonus()">Забрать <svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg><span id="dailyRewardAmount">50</span></button></div>
+            </div>
+            <div class="bonus-item" style="border-color: var(--gold);">
+                <div class="bonus-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="8 4"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></div>
+                <div class="bonus-text"><h3>Связь Душ</h3><p>Пригласи друга</p></div>
+                <div class="bonus-action"><button class="btn-small" onclick="inviteFriend()">Позвать (+1 <svg class="energy-inline" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>)</button></div>
+            </div>
+            <div class="bonus-item">
+                <div class="bonus-icon"><svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"></path><rect x="3" y="6" width="12" height="12" rx="2" ry="2"></rect></svg></div>
+                <div class="bonus-text"><h3>Видение</h3><p>Посмотри рекламу</p></div>
+                <div class="bonus-action"><button class="btn-small" onclick="showAd()">Смотреть (x10 <svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg> на 30с)</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ПРАВИЛ -->
+    <div class="modal-overlay" id="infoModal" onclick="closeModal('infoModal', event)">
+        <div class="info-box" onclick="event.stopPropagation()">
+            <div class="close-btn" onclick="closeModal('infoModal')">&times;</div>
+            <h2 style="font-family: 'Cinzel', serif; color: var(--gold); text-align: center; margin-top:0;">Путь Таролога</h2>
+            <div class="rank-info-item"><h4>Ранги Карт</h4><p>Зависят от количества собранных карт. Неофит, Искатель, Адепт, Магистр Таро.</p></div>
+            <div class="rank-info-item"><h4>Алтарь Судьбы</h4><p>Кликайте по Древу, чтобы получать пыль. Улучшение алтаря увеличивает ежедневную награду и открывает новые фоны для историй ВК!</p></div>
+            <div class="rank-info-item"><h4 style="display: flex; align-items: center;"><svg class="energy-inline" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Энергия</h4><p>Энергия тратится на гадание. Чтобы получить больше, позовите друга, смотрите видения или делитесь картой в истории.</p></div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ПРЕВЬЮ ФОНА -->
+    <div class="modal-overlay" id="previewModal" onclick="closeModal('previewModal', event)">
+        <div class="preview-box" onclick="event.stopPropagation()">
+            <div class="close-btn" onclick="closeModal('previewModal')">&times;</div>
+            <h3 style="font-family: 'Cinzel', serif; color: var(--gold); margin-top:0;" id="previewTitle">Космос</h3>
+            <div class="preview-img" id="previewImg"></div>
+            <button class="btn" id="previewSelectBtn">Выбрать этот фон</button>
+        </div>
+    </div>
+
+    <!-- НАВИГАЦИЯ -->
+    <div class="bottom-nav">
+        <div class="nav-item active" id="navItem_divination" onclick="switchTab('divination', this)"><div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg></div><div class="nav-label">Гадание</div></div>
+        <div class="nav-item" id="navItem_altar" onclick="switchTab('altar', this)"><div class="nav-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div><div class="nav-label">Алтарь</div></div>
+        <div class="nav-item" id="navItem_grimoire" onclick="switchTab('grimoire', this)"><div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V4H6.5A2.5 2.5 0 0 0 4 6.5V19.5Z"/></svg></div><div class="nav-label">Профиль</div></div>
+        <div class="nav-item" id="navItem_rituals" onclick="switchTab('rituals', this)"><div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2C12 2 5 9 5 14C5 17.866 8.13401 21 12 21C15.866 21 19 17.866 19 14C19 9 12 2 12 2Z"/></svg></div><div class="nav-label">Ритуалы</div></div>
+    </div>
+
+    <script>
+        const loader = document.getElementById('loader');
+        let appStarted = false;
+
+        function startApp() {
+            if (appStarted) return;
+            appStarted = true;
+            if(loader && loader.style.display !== 'none') {
+                loader.style.opacity = '0';
+                loader.style.pointerEvents = 'none';
+                setTimeout(() => { loader.style.display = 'none'; }, 500);
+            }
+            setTimeout(checkTutorial, 100);
+        }
+
+        setTimeout(startApp, 3000);
+
+        let userName = "Путник";
+        try {
+            if(window.vkBridge) {
+                vkBridge.send('VKWebAppInit').then(() => {
+                    vkBridge.send('VKWebAppGetUserInfo').then(data => {
+                        if(data.first_name) userName = data.first_name;
+                        startApp();
+                    }).catch(() => startApp());
+                }).catch(() => startApp());
+            } else {
+                startApp();
+            }
+        } catch(e) { startApp(); }
+
+        const tarotDeck = [
+            { num: "0", name: "Шут", desc: "Спонтанный риск принесет неожиданные плоды. Шагните в неизвестность.", img: "/images/optimized/fool.jpg" },
+            { num: "I", name: "Маг", desc: "У вас есть все ресурсы для созидания. Творите свою реальность.", img: "/images/optimized/magician.jpg" },
+            { num: "II", name: "Жрица", desc: "Прислушайтесь к шепоту подсознания. Тайное готовится стать явным.", img: "/images/optimized/priestess.jpg" },
+            { num: "III", name: "Императрица", desc: "День абсолютного изобилия. Дело, в которое вы вложите любовь, даст урожай.", img: "/images/optimized/empress.jpg" },
+            { num: "VII", name: "Колесница", desc: "Триумф воли и движение вперед! Любые препятствия будут сломлены.", img: "/images/optimized/chariot.jpg" },
+            { num: "XIX", name: "Солнце", desc: "Абсолютный успех и ясность ума. Вы сияете — наслаждайтесь триумфом.", img: "/images/optimized/sun.jpg" }
+        ];
+
+        let isFlipped = false;
+        let collectedCards = [1]; 
+        let dust = 0;
+        let energy = 1;
+        let currentDrawnCardImg = ""; 
+        let altarLevel = 1;
+        let altarCost = 100;
+        let activeBgUrl = "vk_story_bg.jpg"; 
+        
+        let starShowerTime = 0;
+        let starShowerInterval = null;
+
+        function safeStorageGet(key, def = null) {
+            try { return localStorage.getItem(key) || def; } catch(e) { return def; }
+        }
+        function safeStorageSet(key, val) {
+            try { localStorage.setItem(key, val); } catch(e) {}
+        }
+        function safeStorageRemove(key) {
+            try { localStorage.removeItem(key); } catch(e) {}
+        }
+
+        function getRank(count) {
+            if(count >= 22) return "Магистр Таро";
+            if(count >= 15) return "Адепт";
+            if(count >= 5) return "Искатель";
+            return "Неофит";
+        }
+
+        function updateStatsUI() {
+            document.getElementById('energyCountHeader').innerText = energy;
+            document.getElementById('dustCountHeader').innerText = dust;
+        }
+
+        function checkBgLock(id, reqLevel) {
+            const lockElem = document.getElementById('lock_' + id);
+            if(altarLevel >= reqLevel) {
+                if(lockElem) lockElem.style.display = 'none';
+                document.getElementById('bg_' + id).classList.remove('locked');
+            } else {
+                if(lockElem) lockElem.style.display = 'block';
+                document.getElementById('bg_' + id).classList.add('locked');
+            }
+        }
+
+        function previewBg(reqLevel, urlName, title) {
+            document.getElementById('previewTitle').innerText = title;
+            const bgPath = (urlName === 'vk_story_bg.jpg') ? '/images/optimized/vk_story_bg.jpg' : '/images/optimized/' + urlName;
+            document.getElementById('previewImg').style.backgroundImage = `url('https://tarot-app-pearl-five.vercel.app${bgPath}')`;
+            
+            const btn = document.getElementById('previewSelectBtn');
+            if(altarLevel < reqLevel) {
+                btn.innerHTML = `🔒 Откроется на ${reqLevel} ур.`;
+                btn.disabled = true;
+                btn.onclick = null;
+            } else {
+                btn.innerHTML = "Выбрать этот фон";
+                btn.disabled = false;
+                btn.onclick = () => {
+                    activeBgUrl = urlName;
+                    document.querySelectorAll('.bg-item').forEach(el => el.classList.remove('active-bg'));
+                    document.getElementById('bg_' + urlName).classList.add('active-bg');
+                    closeModal('previewModal');
+                };
+            }
+            openModal('previewModal');
+        }
+
+        function getAdCount() {
+            let data = JSON.parse(safeStorageGet('adStats') || '{"date": "", "count": 0}');
+            let today = new Date().toDateString();
+            if (data.date !== today) { return 0; }
+            return data.count;
+        }
+
+        function incrementAdCount() {
+            let count = getAdCount();
+            safeStorageSet('adStats', JSON.stringify({"date": new Date().toDateString(), "count": count + 1}));
+        }
+
+        function activateStarShower() {
+            starShowerTime = 30;
+            document.getElementById('starShowerTimer').style.display = 'block';
+            document.getElementById('altarImage').style.filter = 'drop-shadow(0 0 40px #ff8c00)';
+            
+            if (starShowerInterval) clearInterval(starShowerInterval);
+            starShowerInterval = setInterval(() => {
+                starShowerTime--;
+                document.getElementById('starShowerTimer').innerText = `Астральный шторм: ${starShowerTime} сек (x10 Пыли!)`;
+                if (starShowerTime <= 0) {
+                    clearInterval(starShowerInterval);
+                    document.getElementById('starShowerTimer').style.display = 'none';
+                    updateAltarUI();
+                }
+            }, 1000);
+        }
+
+        function updateAltarUI() {
+            document.getElementById('altarLevel').innerText = altarLevel;
+            document.getElementById('altarCost').innerText = altarCost;
+            document.getElementById('altarMultiplier').innerText = altarLevel;
+            document.getElementById('dailyRewardAmount').innerText = 50 * altarLevel;
+            document.getElementById('altarProgress').style.width = Math.min((dust / altarCost) * 100, 100) + '%';
+
+            let imgLevel = 1;
+            if (altarLevel >= 20) imgLevel = 20;
+            else if (altarLevel >= 15) imgLevel = 15;
+            else if (altarLevel >= 10) imgLevel = 10;
+            else if (altarLevel >= 5) imgLevel = 5;
+            
+            let imgElem = document.getElementById('altarImage');
+            if(imgElem) imgElem.src = `/images/optimized/tree_${imgLevel}.png`;
+
+            if (starShowerTime <= 0 && imgElem) {
+                if(altarLevel >= 20) imgElem.style.filter = "drop-shadow(0 0 30px var(--gold))";
+                else if(altarLevel >= 15) imgElem.style.filter = "drop-shadow(0 0 20px #e6e6fa)";
+                else if(altarLevel >= 10) imgElem.style.filter = "drop-shadow(0 0 15px #e6e6fa)";
+                else if(altarLevel >= 5) imgElem.style.filter = "drop-shadow(0 0 10px #cd7f32)";
+                else imgElem.style.filter = "drop-shadow(0 0 10px rgba(212,175,55,0.3))";
+            }
+
+            const r1 = document.getElementById('altarRing1');
+            const r2 = document.getElementById('altarRing2');
+            if(r1 && r2) {
+                if(altarLevel >= 5) { r1.style.display = 'block'; r1.style.borderColor = '#cd7f32'; } else { r1.style.display = 'none'; }
+                if(altarLevel >= 10) { r1.style.borderColor = '#e6e6fa'; r2.style.display = 'block'; r2.style.borderColor = '#bfa1db'; } else { r2.style.display = 'none'; }
+                if(altarLevel >= 20) { r1.style.borderColor = 'var(--gold)'; r2.style.borderColor = 'var(--gold-light)'; }
+            }
+
+            checkBgLock('bg_bronze.jpg', 5);
+            checkBgLock('bg_silver.jpg', 10);
+            checkBgLock('bg_gold.jpg', 20);
+        }
+
+        function initGrimoire() {
+            const grid = document.getElementById('albumGrid');
+            grid.innerHTML = '';
+            for(let i=0; i<6; i++) { 
+                const div = document.createElement('div');
+                div.className = 'grid-card ' + (collectedCards.includes(i) ? 'collected' : '');
+                div.innerText = tarotDeck[i].num;
+                if(collectedCards.includes(i)) {
+                    div.style.backgroundImage = `linear-gradient(180deg, rgba(23,10,36,0.6), rgba(10,4,16,0.9)), url('https://tarot-app-pearl-five.vercel.app${tarotDeck[i].img}')`;
+                    div.style.backgroundSize = 'cover';
+                }
+                grid.appendChild(div);
+            }
+            const rank = getRank(collectedCards.length);
+            document.getElementById('rankTitle').innerText = rank;
+            document.getElementById('progressBar').style.width = (collectedCards.length / 22 * 100) + '%';
+            document.getElementById('cardsCount').innerText = collectedCards.length;
+            updateStatsUI();
+            updateAltarUI();
+        }
+
+        function tapAltar(event) {
+            let reward = starShowerTime > 0 ? 10 : 1;
+            dust += reward;
+            updateStatsUI();
+            updateAltarUI();
+            
+            const floatingText = document.createElement('div');
+            floatingText.innerHTML = `+${reward} <svg class="dust-inline" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg>`;
+            floatingText.style.position = 'fixed';
+            floatingText.style.left = event.clientX + 'px';
+            floatingText.style.top = (event.clientY - 20) + 'px';
+            floatingText.style.color = starShowerTime > 0 ? '#ff8c00' : 'var(--gold)';
+            floatingText.style.fontWeight = 'bold';
+            floatingText.style.pointerEvents = 'none';
+            floatingText.style.zIndex = '9999';
+            floatingText.style.transition = 'all 1s ease-out';
+            document.body.appendChild(floatingText);
+
+            setTimeout(() => {
+                floatingText.style.transform = 'translateY(-50px) scale(1.5)';
+                floatingText.style.opacity = '0';
+            }, 10);
+            setTimeout(() => { document.body.removeChild(floatingText); }, 1000);
+        }
+
+        function upgradeAltar() {
+            if(dust >= altarCost) {
+                dust -= altarCost;
+                altarLevel++;
+                altarCost = Math.floor(100 * Math.pow(1.8, altarLevel - 1));
+                updateStatsUI();
+                updateAltarUI();
+            } else {
+                alert(`Не хватает пыли. Нужно еще ${altarCost - dust} пыли.`);
+            }
+        }
+
+        function claimDailyBonus() { 
+            const btn = document.getElementById('claimDailyBtn');
+            if(btn.disabled) return;
+            let reward = 50 * altarLevel;
+            dust += reward; 
+            initGrimoire(); 
+            btn.innerHTML = "Собрано ✓"; 
+            btn.disabled = true; 
+            alert(`Ежедневный ритуал выполнен! Получено ${reward} пыли.`);
+        }
+
+        function showAd() {
+            if (getAdCount() >= 5) {
+                alert("Астральный канал перегрет. Возвращайся завтра!");
+                return;
+            }
+            try {
+                vkBridge.send("VKWebAppCheckNativeAds", {"ad_format": "reward"})
+                .then((data) => {
+                    if (data.result) {
+                        vkBridge.send("VKWebAppShowNativeAds", {"ad_format": "reward"})
+                        .then((d) => {
+                            if (d.result) { 
+                                incrementAdCount();
+                                activateStarShower();
+                                switchTab('altar', document.getElementById('navItem_altar'));
+                            }
+                        }).catch(e => console.log(e));
+                    } else { alert("Видения пока недоступны. Попробуйте позже."); }
+                }).catch(e => {
+                    incrementAdCount();
+                    activateStarShower();
+                    switchTab('altar', document.getElementById('navItem_altar'));
+                });
+            } catch(e) { 
+                incrementAdCount();
+                activateStarShower();
+                switchTab('altar', document.getElementById('navItem_altar'));
+            }
+        }
+
+        function resetCardManual() {
+            document.getElementById('card').classList.remove('flipped');
+            isFlipped = false;
+            const btnContainer = document.getElementById('shareBtnContainer');
+            btnContainer.style.opacity = 0;
+            setTimeout(() => { btnContainer.style.display = 'none'; }, 500);
+            document.getElementById('instruction').innerText = "Готов к новому гаданию.";
+            document.getElementById('userQuestion').value = ""; 
+            document.getElementById('aiResponse').style.display = 'none';
+        }
+
+        function drawCardApi() {
+            if(isFlipped) return;
+            if(energy <= 0) {
+                alert("У вас нет Энергии! Выполните Ритуал (пригласите друга или опубликуйте историю), чтобы получить попытку.");
+                switchTab('rituals', document.getElementById('navItem_rituals'));
+                return;
+            }
+            
+            energy--;
+            initGrimoire();
+            
+            const randomIndex = Math.floor(Math.random() * tarotDeck.length);
+            const randomCard = tarotDeck[randomIndex];
+            currentDrawnCardImg = randomCard.img;
+
+            document.getElementById('cardNumber').innerText = randomCard.num;
+            document.getElementById('cardName').innerText = randomCard.name;
+            document.getElementById('cardDesc').innerText = randomCard.desc;
+            document.getElementById('cardBack').style.backgroundImage = `linear-gradient(180deg, rgba(23, 10, 36, 0.75) 0%, rgba(10, 4, 16, 0.95) 100%), url('https://tarot-app-pearl-five.vercel.app${randomCard.img}')`;
+            document.getElementById('cardBack').style.backgroundSize = 'cover';
+
+            document.getElementById('card').classList.add('flipped');
+
+            const question = document.getElementById('userQuestion').value;
+            const aiRespElem = document.getElementById('aiResponse');
+            
+            document.getElementById('stepQuestion').classList.remove('tut-highlight');
+            document.getElementById('card').classList.remove('tut-highlight');
+            
+            if(question.trim() !== '') {
+                aiRespElem.style.display = 'block';
+                aiRespElem.innerText = "✨ Духи читают твой вопрос...";
+                fetch('/api/draw', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ vk_sign: window.location.search.substring(1), vk_id: 1, card_index: randomIndex, question: question })
+                })
+                .then(res => res.json())
+                .then(data => { 
+                    if(data.refund) {
+                        alert("Духи не смогли разобрать твой вопрос. Энергия возвращена!");
+                        energy++;
+                        updateStatsUI();
+                        resetCardManual();
+                        if(collectedCards[collectedCards.length - 1] === randomIndex) {
+                            collectedCards.pop();
+                        }
+                        initGrimoire();
+                    } else {
+                        aiRespElem.innerText = data.ai_text ? data.ai_text : "Ответ скрыт в тумане..."; 
+                    }
+                })
+                .catch(e => { 
+                    aiRespElem.innerText = "Астральная связь прервалась..."; 
+                });
+            } else { 
+                aiRespElem.style.display = 'none'; 
+            }
+
+            if(!collectedCards.includes(randomIndex)) {
+                collectedCards.push(randomIndex);
+                document.getElementById('instruction').innerText = "✨ Открыт новый Аркан!";
+            } else {
+                dust += 10;
+                document.getElementById('instruction').innerText = "Повтор. Получено 10 звездной пыли.";
+            }
+            initGrimoire();
+
+            setTimeout(() => {
+                document.getElementById('shareBtnContainer').style.display = 'flex';
+                setTimeout(() => { document.getElementById('shareBtnContainer').style.opacity = 1; }, 50);
+            }, 1200);
+            
+            isFlipped = true;
+        }
+
+        function publishStoryVK() {
+            try {
+                let bgPath = (activeBgUrl === 'vk_story_bg.jpg') ? '/images/optimized/vk_story_bg.jpg' : '/images/optimized/' + activeBgUrl;
+                const bgUrl = "https://tarot-app-pearl-five.vercel.app" + bgPath;
+                const stickerUrl = "https://tarot-app-pearl-five.vercel.app" + currentDrawnCardImg.replace('/images/', '/images/optimized/');
+
+                vkBridge.send("VKWebAppShowStoryBox", {
+                  background_type: "image",
+                  url: bgUrl,
+                  stickers: [{ 
+                      sticker_type: "renderable", 
+                      sticker: { content_type: "image", url: stickerUrl, transform: { translation_y: -50 } } 
+                  }]
+                }).then(data => {
+                    energy++; initGrimoire();
+                    resetCardManual();
+                }).catch(e => console.log("История отменена"));
+            } catch(e) { alert("Ошибка вызова историй."); }
+        }
+
+        function inviteFriend() {
+            try {
+                vkBridge.send("VKWebAppShowInviteBox", {}).then(data => {
+                    if(data.success) { 
+                        energy++; initGrimoire(); 
+                        alert('Отправлено! +1 Энергия'); 
+                        if(isFlipped) resetCardManual();
+                    }
+                }).catch(e => {
+                    vkBridge.send("VKWebAppShare", {"link": "https://vk.com/app54632741"}).then(data => {
+                        energy++; initGrimoire(); 
+                        alert('Ссылка отправлена! +1 Энергия');
+                        if(isFlipped) resetCardManual();
+                    }).catch(e2 => console.log("Закрыто"));
+                });
+            } catch(e) { alert("Невозможно открыть вне VK."); }
+        }
+
+        const originalSwitchTab = function(tabId, element) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('screen-' + tabId).classList.add('active');
+            if(element) element.classList.add('active');
+        }
+
+        window.switchTab = function(tabId, element) {
+            originalSwitchTab(tabId, element);
+            document.querySelectorAll('.tut-highlight').forEach(el => el.classList.remove('tut-highlight'));
+            setTimeout(checkTutorial, 300);
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.style.display = 'flex';
+            setTimeout(() => { modal.classList.add('active'); }, 10);
+        }
+
+        function closeModal(id, event) {
+            if(event && event.target !== document.getElementById(id) && !event.target.classList.contains('close-btn')) return;
+            const modal = document.getElementById(id);
+            modal.classList.remove('active');
+            setTimeout(() => { modal.style.display = 'none'; }, 300);
+        }
+
+        // --- ЛОГИКА КОНТЕКСТНОГО ТУТОРИАЛА ---
+        function checkTutorial() {
+            const activeScreen = document.querySelector('.screen.active');
+            if(!activeScreen) return;
+            const activeTab = activeScreen.id.replace('screen-', '');
+            
+            if(activeTab === 'divination' && !safeStorageGet('tut_divination_ok')) {
+                showTutDialog(
+                    "Голос Вселенной", 
+                    `Приветствую, <b>${userName}</b>! Я — дух этого Гримуара. Впиши свой сокровенный вопрос в подсвеченное поле, а затем коснись колоды, чтобы вытянуть Карту Дня.`,
+                    () => {
+                        hideTutDialog();
+                        safeStorageSet('tut_divination_ok', '1');
+                        document.getElementById('stepQuestion').classList.add('tut-highlight');
+                        document.getElementById('card').classList.add('tut-highlight');
+                    }
+                );
+            } 
+            else if(activeTab === 'altar' && !safeStorageGet('tut_altar_ok')) {
+                showTutDialog(
+                    "Алтарь Судьбы", 
+                    "Это сердце твоей магии. Кликай по Древу, чтобы собирать ✨ Звездную пыль. Чем выше уровень Алтаря, тем больше ежедневная награда и тем круче фоны для Историй ВК!",
+                    () => {
+                        hideTutDialog();
+                        safeStorageSet('tut_altar_ok', '1');
+                        document.getElementById('altarCrystal').classList.add('tut-highlight');
+                        setTimeout(() => {
+                            const ac = document.getElementById('altarCrystal');
+                            if(ac) ac.classList.remove('tut-highlight');
+                        }, 3000);
+                    }
+                );
+            }
+            else if(activeTab === 'grimoire' && !safeStorageGet('tut_grimoire_ok')) {
+                showTutDialog(
+                    "Великие Артефакты", 
+                    "Здесь хранится твоя коллекция Арканов. Повышай свой ранг и открывай новые фоны для Историй. Пусть все увидят твой статус!",
+                    () => {
+                        hideTutDialog();
+                        safeStorageSet('tut_grimoire_ok', '1');
+                        document.getElementById('bgGallery').classList.add('tut-highlight');
+                        setTimeout(() => {
+                            const bg = document.getElementById('bgGallery');
+                            if(bg) bg.classList.remove('tut-highlight');
+                        }, 3000);
+                    }
+                );
+            }
+            else if(activeTab === 'rituals' && !safeStorageGet('tut_rituals_ok')) {
+                showTutDialog(
+                    "Жертва Магии", 
+                    "Гадание расходует твою ⚡ Энергию. Здесь ты можешь восстановить её: выполняй ежедневные ритуалы, смотри видения или приглашай друзей.",
+                    () => {
+                        hideTutDialog();
+                        safeStorageSet('tut_rituals_ok', '1');
+                    }
+                );
+            }
+        }
+
+        function showTutDialog(title, text, action) {
+            document.getElementById('tutTitle').innerText = title;
+            document.getElementById('tutText').innerHTML = text;
+            const btn = document.getElementById('tutNextBtn');
+            btn.onclick = action;
+            
+            const overlay = document.getElementById('tutOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('active'), 10);
+        }
+
+        function hideTutDialog() {
+            const overlay = document.getElementById('tutOverlay');
+            overlay.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        function replayTutorial() {
+            safeStorageRemove('tut_divination_ok');
+            safeStorageRemove('tut_altar_ok');
+            safeStorageRemove('tut_grimoire_ok');
+            safeStorageRemove('tut_rituals_ok');
+            energy = 1;
+            updateStatsUI();
+            if(isFlipped) resetCardManual();
+            switchTab('divination', document.getElementById('navItem_divination'));
+        }
+
+        initGrimoire();
+    </script>
+</body>
+</html>
